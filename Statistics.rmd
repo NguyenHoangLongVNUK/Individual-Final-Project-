@@ -1,0 +1,750 @@
+---
+title: "Untitled"
+output: pdf_document
+---
+                                Name: Nguyễn Hoàng Long
+                                Class: DS20
+                                Date of birth: February23,2000
+                                Student ID: 20040006
+                                Email: long.nguyen200406@vnuk.edu.vn
+##Topic1: In Canada, about 0.35% of women over 40 will develop breast cancer in any given year. A
+common screening test for cancer is the mammogram, but this test is not perfect. In about
+11% of patients with breast cancer, the test gives a false negative: it indicates a woman does
+not have breast cancer when she does have breast cancer. Similarly, the test gives a false
+positive in 7% of patients who do not have breast cancer: it indicates these patients have
+breast cancer when they actually do not.
+```{Q1. If we tested a random woman over 40 for breast cancer using a mammogram and the test came back positive – that is, the test suggested the patient has cancer – what is the probability that the patient actually has breast cancer?}
+#load reshape package
+install.packages("reshape")
+library(reshape)
+#Set up function "rcat"
+rcat = function(n, ptable) {
+  pmatrix = melt(ptable)
+  rows = which(rmultinom(n, 1, pmatrix$value) == 1, arr.ind = TRUE)[ ,'row']
+  indices = pmatrix[rows, c('X1','X2')]
+  colnames(indices) = c('pick.test','is.test.positive.true')
+  rownames(indices) = seq(1, nrow(indices))
+  return(indices)   
+}
+negative.people = 0.9965 # Percentage of women over 40 who do not develop breast cancer
+positive.people = 0.0035 # Percentage of woman over 40 will who develop breast cancer
+Fasle.test.with.negative.people = 0.07 # false positive when there is a positive test
+Fasle.test.with.positive.people = 0.11 # false negative when there is a negative test
+True.test.with.positive.people = 1 - Fasle.test.with.positive.people #True positive when there is a positive test
+True.test.with.negative.people = 1 - Fasle.test.with.negative.people #True negative when there is a negative test
+test.positive = positive.people*True.test.with.positive.people + negative.people*Fasle.test.with.negative.people#probability of obtaining a breast cancer-positive sample of a woman over 40 years of age.
+test.negative = 1 - test.positive#probability of obtaining a sample negative for breast cancer of a woman over 40 years of age. 
+pick.test = c("test positive" = test.positive,
+              "test negative" = test.negative)
+is.positive = c("you are positive" = positive.people,
+                "you are not positive" = negative.people)
+is.test.positive.true = c("yes, it's true" = True.test.with.positive.people,
+                          "no, it's fasle" = Fasle.test.with.negative.people)
+is.test.negative.true = c("no, it's fasle" = Fasle.test.with.positive.people,
+                          "yes, it's true" = True.test.with.negative.people)
+perfect.ratio.test.result.is.positive = matrix("numeric", length(pick.test),length(is.positive))
+for (h in 1:length(pick.test)) {
+  for(k in 1:length(is.positive)) { 
+    if (names(pick.test[h]) == "test positive") {
+      perfect.ratio.test.result.is.positive[h,k] = is.test.positive.true[k]*is.positive[k]
+    } else {
+      perfect.ratio.test.result.is.positive[h,k] = 0#Since the test result is positive, the probability of the test result being negative is 0
+    }
+  }
+}
+rownames(perfect.ratio.test.result.is.positive) = names(pick.test)
+colnames(perfect.ratio.test.result.is.positive) = names(is.test.positive.true)
+perfect.ratio.test.result.is.positive
+number.pick.test.positive.people = 10000
+pick.random.1.people.test.positive = rcat(number.pick.test.positive.people, perfect.ratio.test.result.is.positive)#
+table(pick.random.1.people.test.positive)
+str(pick.random.1.people.test.positive)
+p = sum(pick.random.1.people.test.positive$is.test.positive.true == "yes, it's true")/number.pick.test.positive.people
+#We begin to test this model ratio at the 5% level of significance, is it possible to assume that the percentage of women who test positive for breast cancer is actually breast cancer as per theory?
+po = positive.people*True.test.with.positive.people/test.positive#Pprobability based on conditional probability
+print("Theoretical ratio")
+po
+print("Simulation ratio")
+p
+prop.test(po*numer.pick.test.positive.people,numer.pick.test.positive.people,0.95)
+#Standard parameter
+T.Standard = (p-po)*sqrt(number.pick.test.positive.people)/sqrt(po*(1-po))
+#Acceptance parameter for all criteria at 5% significance level. 
+T.Acceptance = qnorm(1 - 0.05/2)
+if(T.Standard>-T.Acceptance & T.Standard<T.Acceptance) {
+  print("That is the 5% significance level, it can be assumed that the probability to select any one patient who has tested positive for breast cancer actually has breast cancer according to this simulations is theoretically correct and equals: ")
+  print(p)
+} else {
+  print("That is the 5% significance level, it can't be assumed that the probability to select any one patient who has tested positive for breast cancer actually has breast cancer according to this simulations is theoretically correct: ")
+  print("Starting again")
+  print("Please run the code again!")
+}
+```
+Firstly, when we talk about the conditional probability that the event has occurred, we have assumed a theoretical outcome. The purpose of this question is to simulate the level of risk that the hypothetical event is too risky or too safe for theory or work, and the "Rcat" function is a powerful tool to do that. You repeat this code 10 times to see with 5% significance level, how many simulations are acceptable compared to hypothesis? Your next goal is to fix number.pick.test.positive.people = 100000 and keep running 10 times, how many simulations are acceptable compared to hypothesis?
+```{Q2. Use an R simulation to simulate the results for administering mammograms to a population of 100,000 women in their 50’s. How many women in this hypothetical population are expected to test positive for breast cancer? Estimate the PPV of a mammogram for a woman in her 50’s }
+#### simulated 100,000 breast cancer patients in Canada
+number.tests.of.1.simulations = 100000
+number.of.simulations = 100#simulate 100 times
+people = vector('character', number.tests.of.1.simulations)
+result = vector('character', number.tests.of.1.simulations)
+sum.test.positive = vector('numeric',number.of.simulations)
+sum.people.negative = vector('numeric',number.of.simulations)
+#Set people as the key field because the people field is the focus result field 
+for ( i in 1:number.of.simulations) {
+  for (j in 1:number.tests.of.1.simulations) {
+    people[j] = sample(c('positive','negative'),size = 1 , prob = c(positive.people, negative.people), replace = TRUE)#For every woman over the age of 40 tested, there are only 2 possible events, breast cancer or no breast cancer.
+    if ( people[j] == 'positive' ) {
+      result[j] = sample(c('positive','negative'), size = 1 , prob = c(1- Fasle.test.with.positive.people, Fasle.test.with.positive.people), replace = TRUE)
+    }#Simulate type II error according to people
+    if (people[j] == 'negative') {
+      result[j] = sample(c('negative','positive'), size = 1 , prob = c(1 - Fasle.test.with.negative.people, Fasle.test.with.negative.people), replace = TRUE)
+    }#Simulate type I error according to people
+  } 
+  sum.test.positive[i] = sum(result == 'positive')
+}
+addmargins(table(people,result))
+sum.test.positive #Recounting the total number of breast cancer positive cases in 100 simulations 
+u = mean(sum.test.positive) #Average total breast cancer positive cases in 100 simulations 
+mean(sum.test.positive)
+summary(sum.test.positive)#Summary statistics table
+boxplot(sum.test.positive)#Statistical summary using box graphs
+sd = sd(sum.test.positive)#Variance of total breast cancer positive cases in 100 models
+hist(sum.test.positive);abline(v = mean(sum.test.positive), col = 'blue'); abline(v = quantile(sum.test.positive,0.5), col = 'red')
+qqnorm(sum.test.positive, cex = 0.75, col = 'blue'); qqline(sum.test.positive)
+P95 = factor(rep(c('-z','-z <-> z','z'),c(0.025,0.95,0.025)*number.of.simulations),c('-z','-z <-> z','z'))
+pairs(c(1:number.of.simulations) ~ sum.test.positive[order(sum.test.positive)],col = c('red','green3','blue')[P95])
+anpha  =  1  -  0.95 #set up the confidence level to 95%
+z = qnorm(1 - anpha/2)
+se  = c(u - sd*z,u+sd*z)
+print("With a confidence level of 95%, the estimated rate of positive breast cancer testing is")
+prop.test(mean(sum.test.positive), number.tests.of.1.simulations , 0.95)
+print("With 95% confidence intervals in each of the 1 simulations, the total number of patients who tested positive for breast cancer was in the range of")
+se
+print("That is, for every 100 simulations that test 100,000 women with breast cancer, there are 95 simulations with a total in the range of")
+se
+```
+Based on the model, how do you know exactly what the sum of the positive tests in 100000 is? I just did 100 simulations and I took 100 sums with 95% confidence. I estimate the sum to be in range with any simulation. Now trust the fixed number.of.simulation = 200. Check the accuracy, the width of the estimate interval against number.of.simulation = 100
+
+                              Topic2:Website performance
+File: tripvn.csv
+https://drive.google.com/file/d/1sub9Rpl6Bpab6DRNEJPnwESLWGZRovo4/view?usp=sharing
+
+```{Step1: Import data and download packages}
+install.packages('ggplot2')
+library(ggplot2)
+load('tripvn.csv')
+setwd("C:/Topic2")
+getwd()
+topic2 = read.csv("C:/Topic2/tripvn.csv")
+nrow(topic2)
+ncol(topic2)
+topic2
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{Step 2.Data cleaning: NA (Not available)}
+for(i in 1:nrow(topic2)) {
+  for(j in 1:ncol(topic2)) {
+    if(complete.cases(topic2[i,j]) == FALSE) {
+      topic2.no.na = topic2[-c(i,j)]
+    }
+  }
+}
+str(topic2.no.na)
+topic2.no.na
+```
+
+```{Step 3. Data visualization}
+#   (a) Descriptive statistics for each of the variables
+#   (b) Graphs: hist, boxplot, pairs for each feed type
+number.numeric.class = vector("numeric",sum(class(topic2.no.na) == 'numeric'|class(topic2.no.na) == 'integer'))#Create an array containing the order of columns in numeric format
+isnumeric = 0
+for(h in 1:ncol(topic2.no.na)) {
+  print("Number col: ")
+  print(h)
+  print("Name of var: ")
+  print(names(topic2.no.na[h])) 
+  print("Total quantity when cleaned: ")
+  print(sum(complete.cases(topic2.no.na[ ,h]) == TRUE))
+  print("Data type: ")
+  print(class(topic2.no.na[ ,h]))
+  print(str(topic2.no.na[ ,h]))
+  if(class(topic2.no.na[ ,h]) == 'numeric'|class(topic2.no.na[ ,h]) == 'integer') {
+    topic2.no.na[ ,h] == as.numeric(topic2.no.na[ ,h])#Compress number formats to numeric
+    isnumeric = isnumeric + 1
+    print("Data Descriptive Statistics:")
+    print(summary(topic2.no.na[ ,h]))
+    print("variance:")
+    print(sd(topic2.no.na[ ,h]))
+    print("Standard deviation:")
+    print(var(topic2.no.na[ ,h]))
+    number.numeric.class[isnumeric] = h #Save numeric columns in the array
+  }
+}
+###function settings.
+"pairs.panels" <-
+  function (x, smooth = TRUE, scale = FALSE, density=TRUE,ellipses=TRUE,digits = 2, method="pearson",pch = 20,lm=FALSE,cor=TRUE,jiggle=FALSE,factor=2,hist.col="cyan",show.points=TRUE,rug=TRUE, breaks="Sturges", cex.cor = 1 ,wt=NULL,smoother=FALSE,stars=FALSE,ci=FALSE,alpha=.05,...)   #combines a splom, histograms, and correlations
+  {
+    #First define all the "little functions" that are internal to pairs.panels.  This allows easier coding later
+    "panel.hist.density" <-    
+      function(x,...) {
+        usr <- par("usr"); on.exit(par(usr))
+        # par(usr = c(usr[1]-abs(.05*usr[1]) ,usr[2]+ abs(.05*usr[2])  , 0, 1.5) )  
+        par(usr = c(usr[1] ,usr[2]  , 0, 1.5) )  
+        tax <- table(x)
+        if(length(tax) < 11) {breaks <- as.numeric(names(tax))
+        y <- tax/max(tax)
+        interbreak <- min(diff(breaks))*(length(tax)-1)/41
+        rect(breaks-interbreak,0,breaks + interbreak,y,col=hist.col)
+        } else {
+          
+          h <- hist(x,breaks=breaks, plot = FALSE)
+          breaks <- h$breaks; nB <- length(breaks)
+          y <- h$counts; y <- y/max(y)
+          rect(breaks[-nB], 0, breaks[-1], y,col=hist.col)
+        }
+        if(density) { tryd <- try( d <- density(x,na.rm=TRUE,bw="nrd",adjust=1.2),silent=TRUE)
+        if(!inherits(tryd,"try-error")) {
+          d$y <- d$y/max(d$y)
+          lines(d)}}
+        if(rug) rug(x)
+      }
+    
+    
+    "panel.cor" <-
+      function(x, y, prefix="",...)  {
+        
+        usr <- par("usr"); on.exit(par(usr))
+        par(usr = c(0, 1, 0, 1))
+        if(is.null(wt)) { r  <- cor(x, y,use="pairwise",method=method)} else {
+          r <- cor.wt(data.frame(x,y),w=wt[,c(1:2)])$r[1,2]}
+        txt <- format(c(round(r,digits), 0.123456789), digits=digits)[1]
+        txt <- paste(prefix, txt, sep="")
+        if(stars) {pval <- r.test(sum(!is.na(x*y)),r)$p
+        symp <- symnum(pval, corr = FALSE,cutpoints = c(0,  .001,.01,.05, 1),
+                       symbols = c("***","**","*"," "),legend=FALSE)
+        txt <- paste0(txt,symp)}
+        cex <- cex.cor*0.8/(max(strwidth("0.12***"),strwidth(txt)))
+        if(scale)  {cex1 <- cex  * abs(r)
+        if(cex1 < .25) cex1 <- .25 #otherwise they just vanish
+        text(0.5, 0.5, txt, cex = cex1) } else {
+          text(0.5, 0.5, txt,cex=cex)}
+      }
+    
+    "panel.smoother" <- 
+      function (x, y,pch = par("pch"), 
+                col.smooth = "red", span = 2/3, iter = 3, ...) 
+      {
+        # usr <- par("usr"); on.exit(par(usr))
+        #  par(usr = c(usr[1]-abs(.05*usr[1]) ,usr[2]+ abs(.05*usr[2])  , usr[3],usr[4]) )     #doensn't affect the axis correctly
+        xm <- mean(x,na.rm=TRUE)
+        ym <- mean(y,na.rm=TRUE)
+        xs <- sd(x,na.rm=TRUE)
+        ys <- sd(y,na.rm=TRUE)
+        r = cor(x, y,use="pairwise",method=method)
+        if(jiggle) { x <- jitter(x,factor=factor)
+        y <- jitter(y,factor=factor)}
+        if(smoother) {smoothScatter(x,y,add=TRUE, nrpoints=0)} else {if(show.points)  points(x, y, pch = pch, ...)}
+        
+        ok <- is.finite(x) & is.finite(y)
+        if (any(ok)) {   
+          if(smooth & ci) {   lml <- loess(y~x ,degree=1,family="symmetric") 
+          tempx <- data.frame(x = seq(min(x,na.rm=TRUE),max(x,na.rm=TRUE),length.out=47))
+          pred <-  predict(lml,newdata=tempx,se=TRUE ) 
+          
+          if(ci) {  upperci <- pred$fit + confid*pred$se.fit
+          lowerci <- pred$fit - confid*pred$se.fit 
+          polygon(c(tempx$x,rev(tempx$x)),c(lowerci,rev(upperci)),col=adjustcolor("light grey", alpha.f=0.8), border=NA)
+          }
+          lines(tempx$x,pred$fit,  col = col.smooth, ...)   #this is the loess fit
+          }  else {if(smooth)  lines(stats::lowess(x[ok],y[ok],f=span,iter=iter),col=col.smooth) }}
+        if(ellipses)  draw.ellipse(xm,ym,xs,ys,r,col.smooth=col.smooth,...)  #this just draws the ellipse 
+      }
+    
+    "panel.lm" <- 
+      function (x, y,  pch = par("pch"), 
+                col.lm = "red",  ...) 
+      {   ymin <- min(y)
+      ymax <- max(y)
+      xmin <- min(x)
+      xmax <- max(x)
+      ylim <- c(min(ymin,xmin),max(ymax,xmax))
+      xlim <- ylim
+      if(jiggle) { x <- jitter(x,factor=factor)
+      y <- jitter(y,factor=factor)}
+      if(smoother) {smoothScatter(x,y,add=TRUE, nrpoints=0)} else {if(show.points) {points(x, y, pch = pch,ylim = ylim, xlim= xlim, ...)}}# if(show.points) points(x, y, pch = pch,ylim = ylim, xlim= xlim,...)
+      ok <- is.finite(x) & is.finite(y)
+      if (any(ok)) {
+        lml <- lm(y ~ x)  
+        
+        
+        if(ci) {
+          tempx <- data.frame(x = seq(min(x,na.rm=TRUE),max(x,na.rm=TRUE),length.out=47))
+          pred <-  predict.lm(lml,newdata=tempx,se.fit=TRUE)  #from Julian Martins 
+          upperci <- pred$fit + confid*pred$se.fit
+          lowerci <- pred$fit - confid*pred$se.fit
+          polygon(c(tempx$x,rev(tempx$x)),c(lowerci,rev(upperci)),col=adjustcolor("light grey", alpha.f=0.8), border=NA)
+        }
+        if(ellipses) {
+          xm <- mean(x,na.rm=TRUE)
+          ym <- mean(y,na.rm=TRUE)
+          xs <- sd(x,na.rm=TRUE)
+          ys <- sd(y,na.rm=TRUE)
+          r = cor(x, y,use="pairwise",method=method)
+          draw.ellipse(xm,ym,xs,ys,r,col.smooth=col.lm,...)   #just draw the ellipse
+        }
+        abline(lml, col = col.lm, ...)
+      }
+      }
+    
+    
+    "draw.ellipse" <-  function(x=0,y=0,xs=1,ys=1,r=0,col.smooth,add=TRUE,segments=51,...) {
+      #based upon John Fox's ellipse functions
+      angles <- (0:segments) * 2 * pi/segments
+      unit.circle <- cbind(cos(angles), sin(angles))
+      if(!is.na(r)) {
+        if (abs(r)>0 )theta <- sign(r)/sqrt(2) else theta=1/sqrt(2) 
+        
+        shape <- diag(c(sqrt(1+r),sqrt(1-r))) %*% matrix(c(theta,theta,-theta,theta),ncol=2,byrow=TRUE)
+        ellipse <- unit.circle %*% shape 
+        ellipse[,1] <- ellipse[,1]*xs + x
+        ellipse[,2] <- ellipse[,2]*ys + y
+        if(show.points) points(x,y,pch=19,col=col.smooth,cex=1.5 )  #draw the mean
+        lines(ellipse, ...)   }    
+    }
+    
+    "panel.ellipse" <-
+      function (x, y,   pch = par("pch"), 
+                col.smooth = "red", ...) 
+      { segments=51
+      usr <- par("usr"); on.exit(par(usr))
+      par(usr = c(usr[1]-abs(.05*usr[1]) ,usr[2]+ abs(.05*usr[2])  , 0, 1.5) ) 
+      xm <- mean(x,na.rm=TRUE)
+      ym <- mean(y,na.rm=TRUE)
+      xs <- sd(x,na.rm=TRUE)
+      ys <- sd(y,na.rm=TRUE)
+      r = cor(x, y,use="pairwise",method=method)
+      if(jiggle) { x <- jitter(x,factor=factor)
+      y <- jitter(y,factor=factor)}
+      if(smoother) {smoothScatter(x,y,add=TRUE, nrpoints=0)} else {if(show.points) {points(x, y, pch = pch, ...)}}
+      
+      angles <- (0:segments) * 2 * pi/segments
+      unit.circle <- cbind(cos(angles), sin(angles))
+      if(!is.na(r)) {
+        if (abs(r)>0 ) theta <- sign(r)/sqrt(2) else theta=1/sqrt(2) 
+        
+        shape <- diag(c(sqrt(1+r),sqrt(1-r))) %*% matrix(c(theta,theta,-theta,theta),ncol=2,byrow=TRUE)
+        ellipse <- unit.circle %*% shape 
+        ellipse[,1] <- ellipse[,1]*xs + xm
+        ellipse[,2] <- ellipse[,2]*ys + ym
+        points(xm,ym,pch=19,col=col.smooth,cex=1.5 )  #draw the mean
+        if(ellipses) lines(ellipse, ...) 
+      }    
+      }
+    #######
+    
+    #Beginning of the main function
+    ######
+    #The original organization was very clunky, but has finally been cleaned up with lots of extra comments removed  (8/13/17)
+    
+    old.par <- par(no.readonly = TRUE) # save default, for resetting... 
+    on.exit(par(old.par))     #and when we quit the function, restore to original values
+    
+    
+    if(missing(cex.cor)) cex.cor <- 1   #this allows us to scale the points separately from the correlations 
+    
+    for(i in 1:ncol(x)) {  #treat character data as numeric
+      if(is.character(x[[i]] ))  { x[[i]] <- as.numeric(as.factor(x[[i]]) )
+      colnames(x)[i] <- paste(colnames(x)[i],"*",sep="")}
+    }
+    n.obs <- nrow(x)     
+    confid <- qt(1-alpha/2,n.obs-2)   #used in finding confidence intervals for regressions and loess
+    
+    if(!lm) { #the basic default is here
+      if(cor) {
+        pairs(x, diag.panel = panel.hist.density, upper.panel = panel.cor
+              , lower.panel = panel.smoother, pch=pch, ...)} else {
+                pairs(x, diag.panel = panel.hist.density, upper.panel = panel.smoother, lower.panel = panel.smoother, pch=pch, ...)} 
+      
+    } else { #lm is TRUE
+      if(!cor)  { #this case does not show the correlations, but rather shows the regression lines above and below the diagonal
+        pairs(x, diag.panel = panel.hist.density, upper.panel = panel.lm, lower.panel = panel.lm, pch=pch, ...)   
+      } else {  #the normal case is to show the regressions below and the rs above
+        pairs(x, diag.panel = panel.hist.density, upper.panel = panel.cor, lower.panel = panel.lm,pch=pch,  ...)   
+        
+      }
+    }
+    
+  } #end of pairs.panels
+### col.pairs functions 
+Q = factor(rep(c('q1','q2','q3'),c(90,180,90)),c('q1','q2','q3'))
+corl.pairs<-function(x, y){
+  points(x,y, pch=19, col=c("red", "green3", "blue")[Q])
+  r <- round(cor(x, y), digits=2)
+  txt <- paste0("R = ", r)
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  text(0.5, 0.9, txt)
+}# 0-25% red 25-75% green3 75-100% blue
+#Graphing, overall visualization of the data.
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$X)
+hist(topic2.no.na$X); abline(v = mean(topic2.no.na$X), col = 'blue'); abline(v = quantile(topic2.no.na$X,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$X[order(topic2.no.na$X)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Mdn.DNS..ms.)
+hist(topic2.no.na$Mdn.DNS..ms.);abline(v = mean(topic2.no.na$Mdn.DNS..ms.), col = 'blue'); abline(v = quantile(topic2.no.na$Mdn.DNS..ms.,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.DNS..ms.[order(topic2.no.na$Mdn.DNS..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+hist(topic2.no.na$Avg.Time.To.First.Byte..ms.);abline(v = mean(topic2.no.na$Avg.Time.To.First.Byte..ms.), col = 'blue'); abline(v = quantile(topic2.no.na$Avg.Time.To.First.Byte..ms.,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Time.To.First.Byte..ms.[order(topic2.no.na$Avg.Time.To.First.Byte..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Mdn.Webpage.Response..ms.)
+hist(topic2.no.na$Mdn.Webpage.Response..ms.); abline(v = mean(topic2.no.na$Mdn.Webpage.Response..ms.), col = 'blue'); abline(v = quantile(topic2.no.na$Mdn.Webpage.Response..ms.,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.Webpage.Response..ms.[order(topic2.no.na$Mdn.Webpage.Response..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Mdn.Render.Start..ms.)
+hist(topic2.no.na$Mdn.Render.Start..ms.); abline(v = mean(topic2.no.na$Mdn.Render.Start..ms.), col = 'blue'); abline(v = quantile(topic2.no.na$Mdn.Render.Start..ms.,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.Render.Start..ms.[order(topic2.no.na$Mdn.Render.Start..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Avg.Image.Bytes)
+hist(topic2.no.na$Avg.Image.Bytes); abline(v = mean(topic2.no.na$Avg.Image.Bytes), col = 'blue'); abline(v = quantile(topic2.no.na$Avg.Image.Bytes,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Image.Bytes[order(topic2.no.na$Avg.Image.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Avg.Script.Bytes)
+hist(topic2.no.na$Avg.Script.Bytes); abline(v = mean(topic2.no.na$Avg.Script.Bytes), col = 'blue'); abline(v = quantile(topic2.no.na$Avg.Script.Bytes,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Script.Bytes[order(topic2.no.na$Avg.Script.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$Avg.Css.Bytes)
+hist(topic2.no.na$Avg.Css.Bytes); abline(v = mean(topic2.no.na$Avg.Css.Bytes), col = 'blue'); abline(v = quantile(topic2.no.na$Avg.Css.Bytes,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Css.Bytes[order(topic2.no.na$Avg.Css.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$X..Availability)
+hist(topic2.no.na$X..Availability); abline(v = mean(topic2.no.na$X..Availability), col = 'blue'); abline(v = quantile(topic2.no.na$X..Availability,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$X..Availability[order(topic2.no.na$X..Availability)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+par(mfrow = c(1,2))
+boxplot(topic2.no.na$X..Runs)
+hist(topic2.no.na$X..Runs); abline(v = mean(topic2.no.na$X..Runs), col = 'blue'); abline(v = quantile(topic2.no.na$X..Runs,0.5), col = 'red')
+pairs(topic2.no.na$X ~ topic2.no.na$X..Runs[order(topic2.no.na$X..Runs)],lower.panel = NULL, 
+      upper.panel = corl.pairs )
+#Comparative correlation of variables
+for (a in 1:isnumeric) {
+  for (b in (a+1):isnumeric) {
+    if (a == isnumeric) {
+      break
+    }
+    C = c(number.numeric.class[a],number.numeric.class[b])
+    pairs.panels(topic2.no.na[C])
+  } 
+}
+pairs.panels(topic2.no.na[number.numeric.class])
+```
+
+```{Step 4. Check the data is normally distributed, Show the graph that gives an overview of the possible correlations of the variables.Step 5. At the significance level of 5%, can we find the confidence intervals of the variables}
+###function settings.
+"histo" <- function(x,breaks="Sturges", ...) {  
+  tax <- table(x)
+  if(length(tax) < 11) {breaks <- as.numeric(names(tax))
+  y <- tax/max(tax)
+  interbreak <- min(diff(breaks))*(length(tax)-1)/21
+  rect(breaks-interbreak,0,breaks + interbreak,y)
+  } else {
+    
+    h <- hist(x,breaks=breaks)
+  }}
+P95 = factor(rep(c('-z','-z <-> z','z'),c(9,342,9)),c('-z','-z <-> z','z'))
+corl.pairs.95<-function(x, y){
+  points(x,y, pch=19, col=c("red", "green3", "blue")[P95])
+  r <- round(cor(x, y), digits=2)
+  txt <- paste0("R = ", r)
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  text(0.5, 0.9, txt)
+}
+## topic2.no.na$X
+par(mfrow = c(1,1))
+#Picking data and focus variable in the data
+hist.exam = ggplot(data = topic2.no.na,aes(X))+
+  #Compare the distribution across the levels of a categorical variable.
+  geom_histogram(aes(y=..density..),color="black",fill="white")+ 
+  #Plot a normal distribution with mean and variance of data.
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$X,na.rm = TRUE),
+                            sd = sd(topic2.no.na$X,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$X, cex = 0.75, col = 'blue'); qqline(topic2.no.na$X)#Deviation distribution of a normal distribution with values deviating from its mean.
+shapiro.test(topic2.no.na$X)#Test the hypothesis of a normal distribution
+print("it is not possible to assume that topic2.no.na$X follows a normal distribution")
+t.test(topic2.no.na$X)
+norm.interval(topic2.no.na$X)
+pairs(topic2.no.na$X ~ topic2.no.na$X[order(topic2.no.na$X)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$X)
+## topic2.no.na$Mdn.DNS..ms.
+
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Mdn.DNS..ms.))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Mdn.DNS..ms.,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Mdn.DNS..ms.,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Mdn.DNS..ms., cex = 0.75, col = 'blue'); qqline(topic2.no.na$Mdn.DNS..ms.)
+shapiro.test(topic2.no.na$Mdn.DNS..ms.)
+print("it is not possible to assume that topic2.no.na$Mdn.DNS..ms. follows a normal distribution")
+
+t.test(topic2.no.na$Mdn.DNS..ms.)
+norm.interval(topic2.no.na$Mdn.DNS..ms.)
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.DNS..ms.[order(topic2.no.na$Mdn.DNS..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Mdn.DNS..ms.)
+## topic2.no.na$Avg.Time.To.First.Byte..ms.
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Avg.Time.To.First.Byte..ms.))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Avg.Time.To.First.Byte..ms.,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Avg.Time.To.First.Byte..ms.,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Avg.Time.To.First.Byte..ms., cex = 0.75, col = 'blue'); qqline(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+shapiro.test(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+print(" it is not possible to assume that topic2.no.na$Avg.Time.To.First.Byte..ms. follows a normal distribution")
+
+t.test(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+norm.interval(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Time.To.First.Byte..ms.[order(topic2.no.na$Avg.Time.To.First.Byte..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Avg.Time.To.First.Byte..ms.)
+
+## topic2.no.na$Mdn.Webpage.Response..ms.
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Mdn.Webpage.Response..ms.))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Mdn.Webpage.Response..ms.,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Mdn.Webpage.Response..ms.,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Mdn.Webpage.Response..ms., cex = 0.75, col = 'blue'); qqline(topic2.no.na$Mdn.Webpage.Response..ms.)
+shapiro.test(topic2.no.na$Mdn.Webpage.Response..ms.)
+print("it is not possible to assume that topic2.no.na$Mdn.Webpage.Response..ms. follows a normal distribution")
+
+t.test(topic2.no.na$Mdn.Webpage.Response..ms.)
+norm.interval(topic2.no.na$Mdn.Webpage.Response..ms.)
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.Webpage.Response..ms.[order(topic2.no.na$Mdn.Webpage.Response..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Mdn.Webpage.Response..ms.)
+
+## topic2.no.na$Mdn.Render.Start..ms.
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Mdn.Render.Start..ms.))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Mdn.Render.Start..ms.,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Mdn.Render.Start..ms.,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Mdn.Render.Start..ms., cex = 0.75, col = 'blue'); qqline(topic2.no.na$Mdn.Render.Start..ms.)
+shapiro.test(topic2.no.na$Mdn.Render.Start..ms.)
+print(" it is not possible to assume that topic2.no.na$Mdn.Render.Start..ms. follows a normal distribution")
+
+t.test(topic2.no.na$Mdn.Render.Start..ms.)
+norm.interval(topic2.no.na$Mdn.Render.Start..ms.)
+pairs(topic2.no.na$X ~ topic2.no.na$Mdn.Render.Start..ms.[order(topic2.no.na$Mdn.Render.Start..ms.)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Mdn.Render.Start..ms.)
+##topic2.no.na$Avg.Image.Bytes
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Avg.Image.Bytes))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Avg.Image.Bytes,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Avg.Image.Bytes,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Avg.Image.Bytes, cex = 0.75, col = 'blue'); qqline(topic2.no.na$Avg.Image.Bytes)
+shapiro.test(topic2.no.na$Avg.Image.Bytes)
+print(" we can assume that topic2.no.na$Avg.Image.Bytes follows a normal distribution")
+t.test(topic2.no.na$Avg.Image.Bytes)
+print("At the 5% level of significance, it is possible to estimate the mean value of topic2.no.na$Avg.Image.Bytes in the range:")
+norm.interval(topic2.no.na$Avg.Image.Bytes)
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Image.Bytes[order(topic2.no.na$Avg.Image.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Avg.Image.Bytes)
+##topic2.no.na$Avg.Script.Bytes
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Avg.Script.Bytes))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Avg.Script.Bytes,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Avg.Script.Bytes,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Avg.Script.Bytes, cex = 0.75, col = 'blue'); qqline(topic2.no.na$Avg.Script.Bytes)
+shapiro.test(topic2.no.na$Avg.Script.Bytes)
+print(" it is not possible to assume that topic2.no.na$Avg.Script.Bytes follows a normal distribution")
+
+t.test(topic2.no.na$Avg.Script.Bytes)
+norm.interval(topic2.no.na$Avg.Script.Bytes)
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Script.Bytes[order(topic2.no.na$Avg.Script.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Avg.Script.Bytes)
+
+##topic2.no.na$Avg.Css.Bytes
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(Avg.Css.Bytes))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$Avg.Css.Bytes,na.rm = TRUE),
+                            sd = sd(topic2.no.na$Avg.Css.Bytes,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$Avg.Css.Bytes, cex = 0.75, col = 'blue'); qqline(topic2.no.na$Avg.Css.Bytes)
+shapiro.test(topic2.no.na$Avg.Css.Bytes)
+print(" it is not possible to assume that topic2.no.na$Avg.Css.Bytes follows a normal distribution")
+
+t.test(topic2.no.na$Avg.Css.Bytes)
+norm.interval(topic2.no.na$Avg.Css.Bytes)
+pairs(topic2.no.na$X ~ topic2.no.na$Avg.Css.Bytes[order(topic2.no.na$Avg.Css.Bytes)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$Avg.Css.Bytes)
+
+##topic2.no.na$X..Availability
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(X..Availability))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$X..Availability,na.rm = TRUE),
+                            sd = sd(topic2.no.na$X..Availability,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$X..Availability, cex = 0.75, col = 'blue'); qqline(topic2.no.na$X..Availability)
+shapiro.test(topic2.no.na$X..Availability)
+print(" it is not possible to assume that topic2.no.na$X..Availability follows a normal distribution")
+
+t.test(topic2.no.na$X..Availability)
+norm.interval(topic2.no.na$X..Availability)
+pairs(topic2.no.na$X ~ topic2.no.na$X..Availability[order(topic2.no.na$X..Availability)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$X..Availability)
+
+## topic2.no.na$X..Runs
+par(mfrow = c(1,1))
+hist.exam = ggplot(data = topic2.no.na,aes(X..Runs))+
+  geom_histogram(aes(y=..density..),color="black",fill="white")+
+  stat_function(fun = dnorm,
+                args = list(mean = mean(topic2.no.na$X..Runs,na.rm = TRUE),
+                            sd = sd(topic2.no.na$X..Runs,na.rm = TRUE)),
+                color ='blue',size = 1)
+hist.exam
+qqnorm(topic2.no.na$X..Runs, cex = 0.75, col = 'blue'); qqline(topic2.no.na$X..Runs)
+shapiro.test(topic2.no.na$X..Runs) 
+print("it is not possible to assume that topic2.no.na$X..Runs follows a normal distribution")
+
+t.test(topic2.no.na$X..Runs)
+norm.interval(topic2.no.na$X..Runs)
+pairs(topic2.no.na$X ~ topic2.no.na$X..Runs[order(topic2.no.na$X..Runs)],lower.panel = NULL, 
+      upper.panel = corl.pairs.95 )
+orther.interval(topic2.no.na$X..Runs)
+```
+
+
+```{Step 6. Conduct a hypothesis test to address the question of interest. Draw a conclusion.}
+#Create function norm interval and orther interval
+norm.interval = function(data, variance = var(data), conf.level = 0.95) {
+  z = qnorm((1 - conf.level)/2, lower.tail = FALSE)
+  xbar = mean(data)
+  sdx = sqrt(variance/length(data))
+  c(xbar - z * sdx, xbar + z * sdx)
+}
+orther.interval = function(data){
+  Y = data[order(data)]
+  c(Y[length(data)*0.025], Y[length(data)*0.975])
+}
+## Create arrays of columns with the same data type.
+order.number = 1 
+milisecond = c(4,5,6,7)
+boxplot(topic2.no.na[milisecond],
+        col = c('red', 'blue', 'green', 'yellow'))#Visualize variables of the same data type.
+bytes = c(8,9,10)
+boxplot(topic2.no.na[bytes],
+        col = c('red', 'blue', 'green'))#Visualize variables of the same data type. 
+percent = 11
+order.runs = 12
+topic2.no.na.samp <- topic2.no.na[sample(1:dim(topic2.no.na)[1],200),]
+for (a in 1:isnumeric) {
+  for (b in (a+1):isnumeric) {
+    if (a == isnumeric) {
+      break
+    }
+    A = number.numeric.class[a]
+    B = number.numeric.class[b]
+    #Create a pair of numeric data to compare and test
+    if ((A %in% bytes & B %in% bytes)|(A %in% milisecond & B %in% milisecond)) {#Check if it has the same data type
+      pairs(topic2.no.na[c(A,B)], lower.panel = NULL, 
+            upper.panel = corl.pairs)
+      boxplot(topic2.no.na[c(A,B)],
+              col = c('red','blue'))#Visualize pairs of the same data type
+      print("LINEAR CORRELATION COEFFICIENT")
+      correlation = cor(topic2.no.na[A],topic2.no.na[B])#Linear correlation coefficient setting
+      print(correlation)
+      if (correlation >= 0.95 | correlation <= -0.95 ) {
+        print("Linear correlation: y = ax + b ")
+      } else {
+        if (correlation > 2/3 | correlation < -2/3) {
+          print("Tight linear correlation")
+        } else {
+          if (correlation > 1/3 | correlation < -1/3) {
+            print("Loose linear correlation")
+          } else {
+            print("Do not linear correlated")
+          }
+        } 
+      }
+      print("HYPOTHESIS-TESTING")
+      print(names(topic2.no.na[A])) 
+      print(names(topic2.no.na[B]))
+      print(t.test(topic2.no.na[A],topic2.no.na[B],mu = 0,conf.level = 0.95))#A two-sample test for mean.
+      T.Standard = (mean(topic2.no.na[ ,A]) - mean(topic2.no.na[ ,B]))/(var(topic2.no.na[ ,A])/length(topic2.no.na[A]) + var(topic2.no.na[ ,B])/length(topic2.no.na[B]))#Standard parameter setting for mean.
+      if(T.Standard < qnorm(1 - 0.5/2) & T.Standard > -qnorm(1-0.5/2)) {
+        print("At the 5% level of significance, it can be assumed that 2 sample have the same average")
+      } else {
+        print("At the 5% level of significance, it cann't be assumed that 2 sample have the same average")
+      }
+    } else {# If not of the same data type, evaluate the data correlation.
+      pairs(topic2.no.na[c(A,B)], lower.panel = NULL, 
+            upper.panel = corl.pairs)#Visualize pairs of different data types.
+      print("LINEAR CORRELATION COEFFICIENT")
+      correlation = cor(topic2.no.na[A],topic2.no.na[B])#Linear correlation coefficient setting
+      print(correlation)
+      if (correlation >= 0.95 | correlation <= -0.95 ) {
+        print("Linear correlation: y = ax + b ")
+      } else {
+        if (correlation > 2/3 | correlation < -2/3) {
+          print("Tight linear correlation")
+        } else {
+          if (correlation > 1/3 | correlation < -1/3) {
+            print("Loose linear correlation")
+          } else {
+            print("Do not linear correlated")
+          }
+        } 
+      }
+    }
+  }
+}
+```
+
